@@ -109,6 +109,7 @@ struct Polynomial{
     //Hardest to implement is perfect division
     // And i know all my implementation is cringe in terms of operations, but for now anyways our polynomials won't be too large....
     Polynomial operator/(const Polynomial& P2) const{
+        auto P1 = P;
         
     }
 };
