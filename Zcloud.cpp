@@ -237,13 +237,13 @@ auto PolesFromK(double y_init, const vector<complex<double>>& k_values, const ve
 }
 
 //Parameters for Run
-const auto y_init = -300.;
-const auto y_end = 300.;
+const auto y_init = -100.;
+const auto y_end = 100.;
 const auto eps = 1e-2;
 const auto steps = fabs(y_end - y_init) / eps;
-const auto write_every = 0.5;
+const auto write_every = 0.2;
 const auto writing_step = 20;
-const auto max_percentage = 0.05;
+const auto max_percentage = 0.1;
 int main(){
     /*
      *cout << "Setting up random seed..." << endl;
@@ -258,12 +258,12 @@ int main(){
 	auto filename = "pole_evolution.csv";
     //Values of k
     auto k_vals = vector<complex<double>>{
-        complex<double>(0.0, 0.3),
-        complex<double>(0.0, 0.4),
+        complex<double>(3., 4.),
+        complex<double>(1., 2.),
     };
     //Offsets
     auto offsets = vector<complex<double>>{
-        complex<double>(0., 0.),
+        complex<double>(-10., 0.),
         complex<double>(0., 0.),
     };
     
