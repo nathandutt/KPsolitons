@@ -1,5 +1,4 @@
 #include "polynomial.hpp"
-#include <algorithm>
 
 //Monomial Class
 
@@ -20,7 +19,7 @@ bool Monomial::isZero() const{
 Monomial Monomial::operator+(const Monomial& m2) const{
     if(degree!=m2.degree || x_degree != m2.x_degree) 
         throw std::runtime_error("Non equal monomials being added");
-    auto n_chain = cchain::Add(coefficient, m2.coefficient);
+    auto n_chain = Add(coefficient, m2.coefficient);
     return Monomial(n_chain, degree, x_degree);
 }
 
@@ -28,16 +27,16 @@ Monomial Monomial::operator-(const Monomial& m2) const{
     if(degree!=m2.degree || x_degree != m2.x_degree) 
         throw std::runtime_error("Non equal monomials being added");
     auto one = cnumber(0., 1.);
-    auto minus_one = cchain::cchain(one, -1);
-    auto negative_m2 = cchain::Multiply(minus_one, m2.coefficient);
-    auto n_chain = cchain::Add(coefficient, negative_m2);
+    auto minus_one = cchain(one, -1);
+    auto negative_m2 = Multiply(minus_one, m2.coefficient);
+    auto n_chain = Add(coefficient, negative_m2);
     return Monomial(n_chain, degree, x_degree);
 }
 
 Monomial Monomial::operator*(const Monomial& m2) const{
     auto n_d = degree + m2.degree;
     auto n_d_x = x_degree + m2.x_degree;
-    auto n_coeff = cchain::Multiply(coefficient, m2.coefficient);
+    auto n_coeff = Multiply(coefficient, m2.coefficient);
     return Monomial(n_coeff, n_d, n_d_x);
 }
 
@@ -46,7 +45,7 @@ Monomial Monomial::operator/(const Monomial& m2) const{
     auto n_d = degree-m2.degree;
     auto n_d_x = x_degree - m2.x_degree;
     if(n_d < 0 || n_d_x < 0 || (n_d_x > n_d)) throw std::runtime_error("Non perfect monomial division");
-    auto new_c = cchain::Divide(cofficient, m2.coefficient);
+    auto new_c = Divide(coefficient, m2.coefficient);
     return Monomial(new_c, n_d, n_d_x);
 }
 
@@ -65,26 +64,26 @@ int PairToIdx(std::pair<int, int> degree){
 }
 
 Polynomial::Polynomial(int d){
-    auto coeffs = std::vector<Monomial>{}
+    auto coeffs = std::vector<Monomial>{};
     for(int idx = 0; idx < (d+1)*(d+2)/2; idx++){
         auto [d_, n] =IdxToPair(idx);
         auto new_M = Monomial(d_, n);
-        coeffs.emplace_back.(new_M);
+        coeffs.emplace_back(new_M);
     }
     coefficients = coeffs;
-    max_degree = d;
+    degree = d;
     leading_idx = -1;
 }
 Polynomial::Polynomial(const cchain& c, int d, int d_x){
-    auto coeffs = std::vector<Monomial>{}
+    auto coeffs = std::vector<Monomial>{};
     for(int idx = 0; idx < (d+1)*(d+2)/2; idx++){
         auto [d_, n] =IdxToPair(idx);
         auto new_M = Monomial(d, n);
         if(n == d_x) new_M = Monomial(c, d, d_x);
-        coeffs.emplace_back.(new_M);
+        coeffs.emplace_back(new_M);
     }
     coefficients = coeffs;
-    max_degree = d;
+    degree = d;
     leading_idx = PairToIdx(std::pair<int, int>(d, d_x));
 }
 
@@ -106,10 +105,12 @@ Polynomial Polynomial::Reduce(){
     for(int i = 0; i<(d+1)*(d+2); i++){
         new_P.coefficients[i] = coefficients[i];
     }
+    new_P.SetLeading();
+    return new_P;
 }
 
 Polynomial Polynomial::operator+(const Polynomial& P2) const{
-    auto d = std::max(P2.degree, degree);
+    auto d = max(P2.degree, degree);
     auto new_P = Polynomial(d);
     for(int i=0; i<(degree+1)*(degree+2)/2; i++){
         new_P.coefficients[i] = new_P.coefficients[i] + coefficients[i];
@@ -150,7 +151,7 @@ Polynomial Polynomial::operator*(const Monomial& M) const{
 
 Polynomial Polynomial::operator*(const Polynomial& P2) const {
     auto new_P = Polynomial(degree+P2.degree);
-    for(int i = 0; i<i(degree+1)*(degree+2)/2; i++){
+    for(int i = 0; i<(degree+1)*(degree+2)/2; i++){
         for(int j=0; j<(P2.degree+1)*(P2.degree+2)/2; j++){
             auto [d_1, n_1] = IdxToPair(i);
             auto [d_2, n_2] = IdxToPair(j);
@@ -167,7 +168,7 @@ Polynomial Polynomial::operator*(const Polynomial& P2) const {
 
 
 //is a perfect division
-friend Polynomial Divide(const Polynomial& P1, const Polynomial& P2){
+Polynomial Divide(const Polynomial& P1, const Polynomial& P2){
     auto reste = P1;
     if(P2.degree > P1.degree) throw std::runtime_error("Non perfect polynomial division");
     if(P2.isZero()) throw std::runtime_error("Division by zero polynomial");

@@ -1,4 +1,4 @@
-#include "polynomial.cpp"
+#include "polynomial.hpp"
 
 int main(){
     

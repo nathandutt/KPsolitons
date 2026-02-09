@@ -6,22 +6,22 @@ struct cnode{
     cnode* next;
 
     cnode();
-    cnode(cnumber cnum);
-    cnode(cnumber cnum, int multiplicity_);
+    cnode(const cnumber& cnum);
+    cnode(const cnumber& cnum, int multiplicity_);
 };
 class cchain{
     private:
-        cnumber* head;
-        cnumber* tail;
+        cnode* head;
+        cnode* tail;
     public:
         cchain();
-        cchain(cnumber cnum);
-        cchain(cnumber cnum, int multiplicity_);
+        cchain(const cnumber& cnum);
+        cchain(const cnumber& cnum, int multiplicity_);
         ~cchain();
         bool isZero() const;
-        void Add(cnode* node);
+        void Add(const cnumber& c, int multiplicity);
         long double Calculate();
+        friend cchain Add(const cchain& c1, const cchain& c2);
+        friend cchain Multiply(const cchain& c1, const cchain& c2);
+        friend cchain Divide(const cchain& c1, const cchain& c2);
 };
-friend cchain Add(const cchain& c1, const cchain& c2);
-friend cchain Multiply(const cchain& c1, const cchain& c2);
-friend cchain Divide(const cchain& c1, const cchain& c2);

@@ -2,7 +2,7 @@
 
 //Cnode constructors
 cnode::cnode(){}
-cnode::cnode(cnumber c){
+cnode::cnode(const cnumber& c){
     value = c;
     multiplicity = 1;
     next = NULL;
@@ -11,9 +11,9 @@ cnode::cnode(cnumber c){
         multiplicity = -1;
     }
 }
-cnode::cnode(cnumber c, int multiplicity_){
+cnode::cnode(const cnumber& c, int multiplicity_){
     value = c;
-    mutliplicity = multiplicity_;
+    multiplicity = multiplicity_;
     next = NULL;
     if(c.inLHPlane()){
         value = c.opposite();
@@ -56,9 +56,9 @@ bool cchain::isZero() const{
 //Following operation adds a number to the chain, deleting nodes when necessary, and setting head/tail when necessary
 //Keeps ordering of chain by operator< defined in cnumbers.hpp (lexicographical ordering of abs, then arg)
 //With precision of equality defined in cnumbers.hpp
-void cchain::Add(cnumber c, int multiplicity_){
+void cchain::Add(const cnumber& c, int multiplicity_){
     
-    auto node = new cnode(cnum, multiplicity_);
+    auto node = new cnode(c, multiplicity_);
     //Two edge cases: NULL Head
     if(head == NULL){
         head = node;
@@ -68,7 +68,7 @@ void cchain::Add(cnumber c, int multiplicity_){
     auto curr_node = head;
     auto next_node = curr_node->next;
     //And number is equal to head value, where there are two subcases
-    if(head->val == c){
+    if(head->value == c){
         auto multi = multiplicity_ + curr_node->multiplicity;
         if(multi==0){
             head = next_node;
@@ -84,34 +84,34 @@ void cchain::Add(cnumber c, int multiplicity_){
      * 2) c is equal to next_node-> value and multiplicities don't cancel out
      * 3) c is equal to next_node->value and multiplicities cancel: remove node
      */
-    while((next_node!=NULL) && (c < next_node->value)){
+    while((next_node!=NULL) && (c < (next_node->value))){
         curr_node = next_node;
         next_node = next_node->next;
     }
     if(next_node==NULL){
-        curr_node.next = node;
+        curr_node->next = node;
         tail=node;
         return;
     }
     if((c == next_node->value)==false){ //dont feel like defining != operator >:(
-        curr_node.next = node;
-        node.next = next_node;
+        curr_node->next = node;
+        node->next = next_node;
         return;
     }
     auto mul = multiplicity_ + next_node->multiplicity;
     if(mul!=0){
-        next_node.multiplicity = mul;
+        next_node->multiplicity = mul;
         return;
     }
-    curr_node.next=(next_node->next);
+    curr_node->next=(next_node->next);
 }
 
-friend cchain Add(const chain& c1, const chain& c1){
+cchain Add(const cchain& c1, const cchain& c2){
     auto final_chain = cchain();
     auto node = c1.head;
     while(node!=NULL){
         final_chain.Add(node->value, node->multiplicity);
-        node=node->next
+        node=node->next;
     }
     node = c2.head;
     while(node!=NULL){
@@ -120,7 +120,7 @@ friend cchain Add(const chain& c1, const chain& c1){
     }
     return final_chain;
 }
-friend cchain Multiply(const cchain& c1, const chcain& c2){
+cchain Multiply(const cchain& c1, const cchain& c2){
     auto final_c = cchain();    
     auto node_1 = c1.head;
     auto node_2 = c2.head;
@@ -140,7 +140,7 @@ friend cchain Multiply(const cchain& c1, const chcain& c2){
 // I think i have to be careful because nodes can be modified, to be sure deep copy everytime?
 //Add, and Multiply deep copy, because they create nodes everytime by use of the .Add(cnumber, multiplicity) method.
 
-friend cchain Divide(const cchain& c1, const chain& c2){
+cchain Divide(const cchain& c1, const cchain& c2){
     auto reste = cchain();
     reste = Add(reste, c1);
     auto quotient = cchain();
