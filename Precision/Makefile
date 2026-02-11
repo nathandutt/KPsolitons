@@ -1,9 +1,9 @@
 CXX = g++
-CXXFLAGS = -Wall -std=c++20
+CXXFLAGS = -Wall -std=c++20 -g
 
 TARGET = main
 
-SRC = main.cpp polynomial.cpp cchain.cpp cnumber.cpp
+SRC = main.cpp matrix.cpp polynomial.cpp cchain.cpp cnumber.cpp
 
 OBJ = $(SRC:.cpp=.o)
 

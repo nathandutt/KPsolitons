@@ -24,10 +24,9 @@ Monomial Monomial::operator+(const Monomial& m2) const{
 }
 
 Monomial Monomial::operator-(const Monomial& m2) const{
-    if(degree!=m2.degree || x_degree != m2.x_degree) 
+    if((degree!=m2.degree) || (x_degree != m2.x_degree)) 
         throw std::runtime_error("Non equal monomials being added");
-    auto one = cnumber(0., 1.);
-    auto minus_one = cchain(one, -1);
+    auto minus_one = cchain(cnumber(PI, 0.));
     auto negative_m2 = Multiply(minus_one, m2.coefficient);
     auto n_chain = Add(coefficient, negative_m2);
     return Monomial(n_chain, degree, x_degree);
@@ -44,16 +43,25 @@ Monomial Monomial::operator*(const Monomial& m2) const{
 Monomial Monomial::operator/(const Monomial& m2) const{
     auto n_d = degree-m2.degree;
     auto n_d_x = x_degree - m2.x_degree;
-    if(n_d < 0 || n_d_x < 0 || (n_d_x > n_d)) throw std::runtime_error("Non perfect monomial division");
+    if(n_d < 0 || n_d_x < 0 || (n_d_x > n_d)) {
+        std::cout << "Monomial 2: " << m2 << std::endl;
+        std::cout << "Monomial 1: " << *this << std::endl;
+        throw std::runtime_error("Non perfect monomial division");}
     auto new_c = Divide(coefficient, m2.coefficient);
     return Monomial(new_c, n_d, n_d_x);
 }
 
+std::ostream& operator<<(std::ostream& os, const Monomial& M){
+    os << M.coefficient;
+    if(M.x_degree!=0) os << "X^" << M.x_degree;
+    if((M.degree-M.x_degree) > 0) os << "Y^" <<(M.degree-M.x_degree);
+    return os;
+}
 
 //Polynomial implementation
 std::pair<int, int> IdxToPair(int idx){
     float discriminant = 1. + static_cast<float>(8*idx);
-    int d = std::floor(-1. + std::sqrt(discriminant));
+    int d = std::floor(-0.5 + 0.5*std::sqrt(discriminant));
     int n = idx - d*(d+1)/2;
     return std::pair<int, int>(d, n);
 }
@@ -78,8 +86,8 @@ Polynomial::Polynomial(const cchain& c, int d, int d_x){
     auto coeffs = std::vector<Monomial>{};
     for(int idx = 0; idx < (d+1)*(d+2)/2; idx++){
         auto [d_, n] =IdxToPair(idx);
-        auto new_M = Monomial(d, n);
-        if(n == d_x) new_M = Monomial(c, d, d_x);
+        auto new_M = Monomial(d_, n);
+        if((n == d_x) && (d_ == d)) new_M = Monomial(c, d, d_x);
         coeffs.emplace_back(new_M);
     }
     coefficients = coeffs;
@@ -91,18 +99,18 @@ bool Polynomial::isZero() const{
     return (leading_idx == -1);
 }
 void Polynomial::SetLeading(){
-    leading_idx = -1;
-    for(int i=0; i<(degree+1)*(degree+2)/2; i++){
-        if(coefficients[i].isZero()) continue;
-        leading_idx = i;
+    int idx = (degree+1)*(degree+2)/2 -1;
+    while(idx>-1 && coefficients[idx].isZero()){
+        idx--;
     }
+    leading_idx = idx;
 }
 
 //Next supposes leading_idx is well set;
 Polynomial Polynomial::Reduce(){
     auto [d, n] = IdxToPair(leading_idx);
     auto new_P = Polynomial(d);
-    for(int i = 0; i<(d+1)*(d+2); i++){
+    for(int i = 0; i<=leading_idx; i++){
         new_P.coefficients[i] = coefficients[i];
     }
     new_P.SetLeading();
@@ -111,27 +119,29 @@ Polynomial Polynomial::Reduce(){
 
 Polynomial Polynomial::operator+(const Polynomial& P2) const{
     auto d = max(P2.degree, degree);
+    
     auto new_P = Polynomial(d);
-    for(int i=0; i<(degree+1)*(degree+2)/2; i++){
+    for(int i=0; i<=leading_idx; i++){
         new_P.coefficients[i] = new_P.coefficients[i] + coefficients[i];
     }
-    for(int i=0; i<(P2.degree+1)*(P2.degree+2)/2; i++){
+    for(int i=0; i<=P2.leading_idx; i++){
         new_P.coefficients[i] = new_P.coefficients[i] + P2.coefficients[i];
     }
-    return new_P;
     new_P.SetLeading();
     new_P.Reduce();
+    return new_P;
 }
 
 Polynomial Polynomial::operator-(const Polynomial& P2) const{
     auto d = std::max(P2.degree, degree);
     auto new_P = Polynomial(d);
-    for(int i=0; i<(degree+1)*(degree+2)/2; i++){
-        new_P.coefficients[i] = new_P.coefficients[i] - coefficients[i];
+    for(int i=0; i<=leading_idx; i++){
+        new_P.coefficients[i] = new_P.coefficients[i] + coefficients[i];
     }
-    for(int i=0; i<(P2.degree+1)*(P2.degree+2)/2; i++){
+    for(int i=0; i<=P2.leading_idx; i++){
         new_P.coefficients[i] = new_P.coefficients[i] - P2.coefficients[i];
     }
+    
     new_P.SetLeading();
     new_P.Reduce();
     return new_P;
@@ -139,20 +149,23 @@ Polynomial Polynomial::operator-(const Polynomial& P2) const{
 }
 
 Polynomial Polynomial::operator*(const Monomial& M) const{
-    auto new_P = Polynomial(degree);
-    for(int i = 0; i<(degree+1)*(degree+2)/2; i++){
-        new_P.coefficients[i] = M*coefficients[i];
+    auto d = degree + M.degree;
+    auto new_P = Polynomial(d);
+    for(int i = 0; i<=leading_idx; i++){
+        auto [d_p, n_p] = IdxToPair(i);
+        auto n_d = d_p + M.degree; auto n_d_x = n_p + M.x_degree;
+        auto n_idx = PairToIdx(std::pair<int, int>(n_d, n_d_x));
+        new_P.coefficients[n_idx] = coefficients[i]*M;
     }
     new_P.SetLeading();
-    new_P.Reduce();
     return new_P;
 
 }
 
 Polynomial Polynomial::operator*(const Polynomial& P2) const {
     auto new_P = Polynomial(degree+P2.degree);
-    for(int i = 0; i<(degree+1)*(degree+2)/2; i++){
-        for(int j=0; j<(P2.degree+1)*(P2.degree+2)/2; j++){
+    for(int i = 0; i<=leading_idx; i++){
+        for(int j=0; j<=P2.leading_idx; j++){
             auto [d_1, n_1] = IdxToPair(i);
             auto [d_2, n_2] = IdxToPair(j);
             auto l = PairToIdx(std::pair<int, int>(d_1+d_2, n_1+n_2));
@@ -161,11 +174,21 @@ Polynomial Polynomial::operator*(const Polynomial& P2) const {
         }
     }
     new_P.SetLeading();
-    new_P.Reduce();
     return new_P;
 
 }
 
+std::ostream& operator<<(std::ostream& os, const Polynomial& P){
+    os << "-----" << std::endl << "Leading term = " << P.leading_idx << std::endl;
+    if (P.leading_idx<0) {os << "0"; return os;}
+    for(int i =0; i < P.leading_idx; i++){
+         
+        if(P.coefficients[i].isZero()) continue;
+        os <<P.coefficients[i] << " + ";
+    }
+    os << P.coefficients[P.leading_idx];
+    return os;
+}
 
 //is a perfect division
 Polynomial Divide(const Polynomial& P1, const Polynomial& P2){
@@ -179,11 +202,10 @@ Polynomial Divide(const Polynomial& P1, const Polynomial& P2){
        auto next_term = l_r/leading_2;
        auto poly = Polynomial(next_term.coefficient,next_term.degree, next_term.x_degree);
        quotient = quotient + poly;
-       reste = reste - (P2*next_term);
+       reste = reste - P2*next_term;
     }
     return quotient;
 }
-
 
 
 

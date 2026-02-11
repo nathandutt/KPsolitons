@@ -15,6 +15,7 @@ struct Monomial{
     Monomial operator-(const Monomial& m2) const;
     Monomial operator*(const Monomial& m2) const;
     Monomial operator/(const Monomial& m2) const;
+    friend std::ostream& operator<<(std::ostream& os, const Monomial& M);
 
 };
 
@@ -40,5 +41,5 @@ class Polynomial{
         Polynomial operator*(const Polynomial& P2) const;
         Polynomial operator*(const Monomial& M) const;
         friend Polynomial Divide(const Polynomial& P1, const Polynomial& P2);
-        
+        friend std::ostream& operator<<(std::ostream& os, const Polynomial& P);        
 };
