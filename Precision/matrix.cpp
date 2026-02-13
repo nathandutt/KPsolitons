@@ -52,14 +52,14 @@ void Bareiss(Matrix& M){
         for(uint i =k+1; i< n; i++){
             for(uint j=k+1; j<n; j++){
                 std::cout << i << " " << j << " " << k << std::endl;
-                /*
+                
                 if(i==5 && j==5 && k==4){
                     std::cout << "M[i][j]: " << M[i][j] << std::endl
                               << "M[k][k]: " << M[k][k] << std::endl
                               << "M[i][k]: " << M[i][k] << std::endl
                               << "M[k][j]: " << M[k][j] << std::endl;
                 }
-                */
+                
                 auto A = M[i][j]*M[k][k] - M[i][k]*M[k][j];
                 auto B = Polynomial(cnumber(0., 0.), 0, 0);
                 if(k!=0) B = M[k-1][k-1];

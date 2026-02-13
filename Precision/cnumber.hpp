@@ -5,7 +5,7 @@ typedef long double real;
 typedef std::complex<real> comp;
 
 static const long double PI = std::numbers::pi_v<long double>;
-static const long double equality_precision=1e-3;
+static const long double equality_precision=1e-5;
 int max(int a, int b);
 class cnumber{
     private:

@@ -4,7 +4,10 @@
 const comp I = comp(0., 1.);
 const comp one = comp(1., 0.);
 
-//We need make sure arg is in [-pi, pi]
+/*
+ * Helper Functions for complex number wrapping
+ * We need make sure arg is in [-pi, pi]
+ */
 long double wrap_pi(long double a) {
     a = std::fmod(a + PI, 2*PI);
     if (a < 0) a += 2*PI;
@@ -17,6 +20,11 @@ int max(int a, int b){
     if(a>b) return a;
     return b;
 }
+
+/*
+ *Constructors for cnumber
+ *Either initialize fields directly or with a complex number.
+ */
 cnumber::cnumber(){
     arg = 0.;
     abs = 0.;
@@ -33,17 +41,24 @@ cnumber::cnumber(const real arg_, const real abs_){
 
 }
 
+/*
+ *Comparison operations on cnumber
+ *There are multiple. Because we need different types of equality
+ */
+
+
 //There can be some "dangerous" numerical behaviour here: because comparison is lexicographical
 //Sometimes wont simplify exp(0) + exp(i*pi) to 0 because they aren't close enough in lexicographical order.
 //We try to mitigate that by only wrapping to pi if we're far enough away from zero negatively.
 bool cnumber::inLHPlane() const{
     return arg < -1.*equality_precision;
 }
+
 cnumber cnumber::opposite() const{
     return cnumber(arg + PI, abs);
 }
 
-//THis is used later for division purposes (knowing when division is not perfect) operator< doesn't work because it compares complex numbers too
+//This is used later for division purposes (knowing when division is not perfect) operator< doesn't work because it compares complex numbers too
 bool cnumber::lessthan(const cnumber& c2) const{
     if(abs < (c2.abs-equality_precision)) return true;
     return false;
