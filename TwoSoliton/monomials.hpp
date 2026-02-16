@@ -1,16 +1,18 @@
 #include <stdexcept>
-#include <complex> 
+#include "complexchain.hpp"
 #include <iostream>
-static const long double equality_precision = 1e-8;
+static const double equality_precision = 1e-19;
 class Monomial{
-    private:
+    public:
         int x;
         int y;
         int t;
-        std::complex<long double> value;
-    public:
-        Monomial(int x_, int y_, int t_, std::complex<long double> val_);
-        Monomial(std::complex<long double> val_);
+        ComplexChain value;
+    
+        Monomial(int x_, int y_, int t_, ComplexChain val_);
+        Monomial(ComplexChain val_);
+        ComplexChain Evaluate(const ComplexNumber& x, const ComplexNumber& y, const ComplexNumber& t) const;
+        Monomial Simplify() const;
         bool isZero() const;
         friend bool operator<(const Monomial& m1, const Monomial& m2);
         friend Monomial operator+(const Monomial& m1, const Monomial& m2);

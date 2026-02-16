@@ -3,7 +3,7 @@ CXXFLAGS = -Wall -std=c++20 -g
 
 TARGET = twosoliton
 
-SRC = twosoliton.cpp polynomials.cpp monomials.cpp
+SRC = twosoliton.cpp pointevolution.cpp basicpolynomial.cpp polynomials.cpp monomials.cpp complexchain.cpp complexnumber.cpp
 
 OBJ = $(SRC:.cpp=.o)
 

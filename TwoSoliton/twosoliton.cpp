@@ -2,8 +2,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include "polynomials.hpp"
-
+#include "pointevolution.hpp"
 using namespace std;
 typedef vector<vector<Polynomial>> Matrix;
 
@@ -22,11 +21,11 @@ ostream& operator<<(ostream& os, const Matrix& M){
 
 
 
-void ReadParameters(fstream& file, vector<complex<long double>>& k_s, vector<complex<long double>>& offsets){
-    long double re_k, im_k, re_o, im_o;
+void ReadParameters(fstream& file, vector<ComplexNumber>& k_s, vector<ComplexNumber>& offsets){
+    double re_k, im_k, re_o, im_o;
     while(file >> re_k >> im_k >> re_o >> im_o){
-        auto n_k = complex<long double>(re_k, im_k);
-        auto n_o = complex<long double>(re_o, im_o);
+        auto n_k = complex<double>(re_k, im_k);
+        auto n_o = complex<double>(re_o, im_o);
         k_s.emplace_back(n_k);
         k_s.emplace_back(conj(n_k));
         offsets.emplace_back(n_o);
@@ -34,19 +33,20 @@ void ReadParameters(fstream& file, vector<complex<long double>>& k_s, vector<com
     }
 }
 
-Polynomial DiagonalTerm(const complex<long double>& k, const complex<long double>& offset){
-    auto X_term = Polynomial(Monomial(1, 0, 0, complex<long double>(1., 0.))); 
-    auto Y_term = Polynomial(Monomial(0, 0, 0, (long double)(-2.)*k));
-    auto T_term = Polynomial(Monomial(0, 0, 0, (long double)(12.)*k*k)); 
+Polynomial DiagonalTerm(const ComplexNumber& k, const ComplexNumber& offset){
+    auto one = ComplexNumber(0., 0.);
+    auto X_term = Polynomial(Monomial(1, 0, 0, ComplexChain(one))); 
+    auto Y_term = Polynomial(Monomial(0, 1, 0, ComplexChain(ComplexNumber(-2.)*k)));
+    auto T_term = Polynomial(Monomial(0, 0, 1, ComplexChain(ComplexNumber(12.)*k*k))); 
     auto Constant  = Polynomial(offset);
     return X_term + Y_term + T_term + Constant;
 }
 
-Polynomial OffDiagonal(const complex<long double>& k_i, const complex<long double>& k_j){
-    auto I = complex<long double>(0., 1.);
-    return Polynomial(I/(k_j-k_i));
+Polynomial OffDiagonal(const ComplexNumber& k_i, const ComplexNumber& k_j){
+    auto I = ComplexNumber(complex<double>(0., 1.));
+    return Polynomial(Monomial(0, 0, 0, ComplexChain(I/(k_j-k_i))));
 }
-Matrix Hirota(const vector<complex<long double>>& k_s, const vector<complex<long double>>& offsets){
+Matrix Hirota(const vector<ComplexNumber>& k_s, const vector<ComplexNumber>& offsets){
     auto M = Matrix();
     for(unsigned int i =0; i<k_s.size(); i++){
         auto line = std::vector<Polynomial>{};
@@ -90,15 +90,16 @@ auto Minor(const Matrix& M, const set<int>& i_idx, const set<int>& j_idx){
     auto idx = 1;
     for(const auto i: i_idx){
         auto j = *(j_idx.begin());
-        cout << "Removing 1st column and "<< idx <<"th row to get" << endl;
-        auto sign = complex<long double>(((idx+1)%2==0) ? 1. : -1., 0.);
-        cout << "Sign is " << sign << endl;
+        //cout << "Removing 1st column and "<< idx <<"th row to get" << endl;
+        auto sign = ComplexNumber(complex<double>(((idx+1)%2==0)?1. : -1.,0.));
+        auto polysign = Polynomial(Monomial(0, 0, 0, sign));
+        //cout << "Sign is " << polysign << endl;
         auto n_i_idx = i_idx;
         auto n_j_idx = j_idx;
         n_i_idx.erase(n_i_idx.find(i));
         n_j_idx.erase(n_j_idx.find(j));
-        cout << Submatrix(M, n_i_idx, n_j_idx) << endl;
-        auto m = sign*M[i][j]*Minor(M, n_i_idx, n_j_idx);
+        //cout << Submatrix(M, n_i_idx, n_j_idx) << endl;
+        auto m = polysign*M[i][j]*Minor(M, n_i_idx, n_j_idx);
         //cout << "i, j, m" << i << " " << j << " " << m << endl;
         ret = ret + m;
         idx++;
@@ -107,27 +108,55 @@ auto Minor(const Matrix& M, const set<int>& i_idx, const set<int>& j_idx){
     return ret;
 }
 Polynomial Determinant(const Matrix& M){
-    cout << "Getting determinant of " << M << endl;
-   auto i_idx = set<int>{};
-   auto j_idx = set<int>{};
-   for(int i = 0; i<(int)(M.size()); i++){
+    auto i_idx = set<int>{};
+    auto j_idx = set<int>{};
+    for(int i = 0; i<(int)(M.size()); i++){
         i_idx.insert(i);
         j_idx.insert(i);
-   }
-   return Minor(M, i_idx, j_idx);
+    }
+    return Minor(M, i_idx, j_idx);
 }
 
 int main(){
     const string filename = "params.txt";
     fstream file;
     file.open(filename, ios::in);
-
-    auto k_s = std::vector<complex<long double>>{};
-    auto offsets = std::vector<complex<long double>>{};
+    double timestep = 0.001;
+    auto k_s = std::vector<ComplexNumber>{};
+    auto offsets = std::vector<ComplexNumber>{};
 
     ReadParameters(file, k_s, offsets);
+    file.close();
     auto M = Hirota(k_s, offsets);
     auto P = Determinant(M);
-    cout << M << endl;
-    cout << P << endl;
+   // cout << P << endl;
+    //cout << P.Simplify() << endl;
+    //
+
+    auto A = Derive(Derive(P, 0), 0) - Derive(P, 0)*Derive(P, 0);
+    auto B = Derive(Derive(P, 0), 1) - Derive(P, 1)*Derive(P, 0);
+    auto Det = Derive(A, 0)*Derive(B, 1) - Derive(B, 0)*Derive(A, 1);
+    auto T_x =  Derive(A, 1)*Derive(B, 2) - Derive(B, 1)*Derive(A, 2);
+    auto T_y =  Derive(A, 2)*Derive(B, 0) - Derive(B, 2)*Derive(A, 0);
+    Det = Det.Simplify();
+    T_x = T_x.Simplify();
+    T_y = T_y.Simplify();
+    auto B_Det = BasicPolynomial(Det);
+    auto B_T_x = BasicPolynomial(T_x);
+    auto B_T_y = BasicPolynomial(T_y);
+
+//    cout << Det << endl << endl;
+//    cout << T_x << endl << endl;
+//    cout << T_y << endl << endl;
+//
+    cout << B_Det << endl;
+    const string writeto = "evolution.csv";
+    file.open(writeto, ios::out);
+    auto pt = Point{-120.5, 0., -10.};
+    while(pt.t < 10.){
+       pt.Write(file);
+       EvolvePoint(pt,timestep, B_Det, B_T_x, B_T_y);
+    }
+    
+
 }

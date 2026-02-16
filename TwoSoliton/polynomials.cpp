@@ -5,15 +5,33 @@ Polynomial::Polynomial(){
     terms = std::set<Monomial>{};
 }
 
-Polynomial::Polynomial(const std::complex<long double>& c){
+Polynomial::Polynomial(const ComplexChain& c){
     terms = std::set<Monomial>{Monomial(c)};
 }
 Polynomial::Polynomial(Monomial M){
     terms = std::set<Monomial>{M};
 }
 
+ComplexNumber Polynomial::Evaluate(const double x, const double y, const double t) const{
+    auto chain = ComplexChain();
+    auto X = ComplexNumber(x);
+    auto Y = ComplexNumber(y);
+    auto T = ComplexNumber(t);
+    for(const auto& mon : terms){
+        auto n_term = mon.Evaluate(X, Y, T);
+        chain += n_term;
+    }
+    return chain.OneTerm();
+}
 //Operations
-
+Polynomial Polynomial::Simplify() const{
+    auto p = Polynomial();
+    for(const auto& m : terms){
+        auto new_m = m.Simplify();
+        p+=new_m;
+    }
+    return p;
+}
 void Polynomial::operator+=(const Monomial& M){
     if(auto found = terms.find(M); found!=terms.end()){
         auto f_M = *found;
@@ -71,6 +89,7 @@ std::ostream& operator<<(std::ostream& os, const Polynomial& p){
     }
     return os;
 }
+
 
 Polynomial Derive(const Polynomial& p, int variable){
     auto n_p = Polynomial();
