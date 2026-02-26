@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX      := g++
-CXXFLAGS := -std=c++17 -Wall -Iinclude -g
+CXXFLAGS := -std=c++17 -Wall -Iinclude -I/usr/include/eigen3/ -O3
 
 # Directories
 SRC_DIR  := src

@@ -1,22 +1,53 @@
+#include "tracker.hpp"
+#include "global.hpp"
+#include "polestate.hpp"
+#include "initialconditions.hpp"
+#include "field.hpp"
+#include "npy.hpp"
+
 #include <fstream>
 #include <iostream>
 #include <vector>
 #include <complex>
-#include "integration.hpp"
-#include "npy.hpp"
 #include <stdexcept>
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+
 using namespace std;
 /*
  *       Format of params.txt
  *       t_i  t_f  t_step
  *       y_i  y_f  y_step y_write_step
+ *       x_i  x_f  x_step 
  *       k1_re  k1_im  o1_re  o1_im
  *       ...
  *       kn_re  kn_im  on_re  on_im
  */
+
+//Read Evolution parameters
+struct Config{
+    double y_i; double y_f; double y_step; double y_write_step;
+    double x_i; double x_f; double x_step;
+    double t_i; double t_f; double t_step;
+
+    Config(fstream& file){
+	file >> t_i >> t_f >> t_step;
+	file >> y_i >> y_f >> y_step >> y_write_step;
+	file >> x_i >> x_f >> x_step;
+    }
+    void Print(){
+	cout << "Y parameters are: " << endl
+	     << "Initial y: " << y_i << " Final y: " << y_f <<
+	     " Pole integration step: " << y_step << " Zero finding step: " << y_write_step << endl
+	     << "X parameters are: " << endl
+	     << "Initial x: " << x_i << " Final x: " << x_f << " Zero finding step: " << x_step << endl
+	     << "T parameters are: " << endl
+	     << "Initial t: " << t_i << " Final t: " << t_f << " Timestep:" << t_step << endl;
+    }
+};
+
+//Read soliton parameters
 void ReadParameters(fstream& file, vector<complex<double>>& k_s, vector<complex<double>>& offsets){
     double k_re, o_re, k_im, o_im;
     while(file >> k_re >> k_im >> o_re >> o_im){
@@ -29,7 +60,8 @@ void ReadParameters(fstream& file, vector<complex<double>>& k_s, vector<complex<
     }
 }
 
-vector<complex<double>> EvolveOffsets(double t,vector<complex<double>>& k_s, vector<complex<double>>& offsets){
+//Evolve soliton offsets for a fixed time
+vector<complex<double>> EvolveOffsets(double t,const vector<complex<double>>& k_s, const vector<complex<double>>& offsets){
     auto new_offsets = std::vector<complex<double>>{};
     if(k_s.size()!=offsets.size()) throw std::runtime_error("Nonequal k_s and offsets");
     for(unsigned int i = 0; i < k_s.size(); i++){
@@ -39,12 +71,47 @@ vector<complex<double>> EvolveOffsets(double t,vector<complex<double>>& k_s, vec
     return new_offsets;
 }
 
-void PrintPoints(const Points& p){
-    cout << "Y = " << p.y << endl;
-    for(const auto& pole : p.poles){
-        cout << "Point: " << pole.pole << ", Velocity: " << pole.velocity << endl;
+
+//Given a fixed time, and soliton parameters, get all critical points
+std::vector<Point> GetZeros(const double time, const Config& config, const vector<complex<double>>& k_s, const vector<complex<double>>& offsets){
+    //First, evolve soliton parameters
+    auto zero_list = std::vector<Point>{}; 
+    auto t_offsets = EvolveOffsets(time, k_s, offsets);
+
+    //Initialize poles
+    auto y_curr = config.y_i;
+    auto points = PoleSet(config.y_i, k_s, t_offsets);
+    auto y_write = config.y_i;
+
+    //Initialize Zero Trackers;
+    auto trackers = TrackerList{};
+    auto written = 0;
+    while(y_curr < config.y_f){
+
+	//If at zero searching resolution, look for zeros and add them to trackers
+	int write_every = floor(config.y_write_step/config.y_step);
+	if(written%write_every==0){
+	    y_write+=config.y_write_step;
+
+	    //Get zeros for fixed y
+	    auto zeros = FindZero(points, config.x_i, config.x_f, config.x_step);
+	    //Cycle through zeros and add them to trakcer
+	    for(const auto& x_coord : zeros){
+		auto new_pt = Point(x_coord, y_curr);
+		auto new_val = Phi_y(points, x_coord);
+		TrackPoint(trackers, new_pt, new_val, 0.3*config.y_write_step);
+//		zero_list.emplace_back(new_pt);
+	    }
+	}
+
+	//Evolve points with integration step
+	points.Evolve(config.y_step);
+	y_curr = points.y;
+	written++;
     }
+    return ExtractZeros(trackers);
 }
+
 // !!! We suppose params.txt is well formatted, see above
 int main(){
     const string input_file = "params.txt";
@@ -54,55 +121,78 @@ int main(){
     auto offsets = vector<complex<double>>{};
      
     file.open(input_file, ios::in);
-    
-    //Get integration parameters
-    double t_i, t_f, t_step;
-    file >> t_i >> t_f >> t_step;
-    double y_i, y_f, y_step, y_write_step;
-    file >> y_i >> y_f >>  y_step >> y_write_step;
-    
+    //Get config
+    auto config = Config(file);
+
+    cout << "Take a moment to check parameters please. " << endl;
+    config.Print();
+
     //Get soliton parameters
     ReadParameters(file, k_s, offsets);
     file.close();
 
-    auto T = floor((t_f - t_i)/t_step);
-    auto Y = floor((y_f - y_i)/y_step);
     int pole_number = k_s.size();
+    assert(pole_number == N);
+    
+    //for now only simulate one time
+    auto current_time = config.t_i;
+    auto t_offsets = EvolveOffsets;
 
-    cout << "So we have " << pole_number/2 << " solitons" << endl
-         << "And we are looking at " << T << " different time values" << endl
-         << "And also integrating on y from " << y_i << " to " << y_f << endl;
-    for(int i = 0; i < T; i++){
-        //Here we iterate over different t values, for each t value we will write a new .npy data file
-        //formatted as a numpy array of shape (Y, pole_number, 2)
-        
-        double t = t_i + t_step * i;
-        auto t_data = std::vector<double>{};
-        ostringstream ss;
-        ss << fixed << setprecision(3) << t;
-        string write_path = output_dir + ss.str() + ".npy";
 
-        //Evolve offsets and create initial points
-        auto evolved_offsets = EvolveOffsets(t, k_s, offsets); 
-        auto points = Points(y_i, k_s, evolved_offsets);
-        PrintPoints(points);
-        double y_write = y_i;
-        double written_y = 0;
-        auto curr_y = points.y;
-        while(curr_y < y_f){
-            if(curr_y >= y_write) {
-                AddPoints(t_data, points);
-                //PrintPoints(points);
-                //cout << "Wrote t=" << t << " and y= " << curr_y << endl;
-                y_write += y_write_step;
-                written_y++;
-            }
-            points.Evolve(y_step);
-            curr_y = points.y;
-        }
-        const std::vector<unsigned long> shape{written_y, pole_number, 2};
-        const npy::npy_data_ptr<double> data_ptr{t_data.data(), shape, false};
-        write_npy(write_path, data_ptr);
+    //Initialize poles
+    auto [p, v] = InitialConditions(config.y_i, k_s, t_offsets);
+    PoleState poles(config.y_i, p, v);
+    
+    //Vector to save
+    int total_pt_estimate = floor((config.y_f - config.y_i)/config.y_write_step);
+    std::vector<std::unique_ptr<SavedState>> v;
+    v.reserve(1.5*total_pt_estimate);
+
+    //Initialize loop parameters
+
+    double current_y = config.y_i;
+    double next_write_y = config.y_i;
+
+    while(current_y < config.y_f){
+	if(current_y >= next_write_y){
+	    poles.Insert(v);
+	    next_write_y = config.y_write_step;
+	}
+	poles.Evolve(config.y_step);
+	current_y += config.y_step;
     }
     
+
+
+
+
+
+
+
+//    auto current_time = config.t_i;
+//    while(current_time < config.t_f){
+//
+//	//Define write path for .npy output
+//	ostringstream ss;
+//	ss << fixed << setprecision(5) << current_time;
+//	string write_path = output_dir + ss.str() + ".npy";
+//
+//	//Get critical points
+//	cout << "Time = " << current_time << endl;
+//	auto critical_points = GetZeros(current_time, config, k_s, offsets);
+//	cout << "Got " << critical_points.size() << " critical points" <<endl;
+//	current_time += config.t_step;
+//	cout << "Writing" << endl;    
+//	//Put data in correct format for .npy writing
+//	const std::vector<unsigned long> shape{critical_points.size(), 2};
+//	auto data = std::vector<double>{};
+//	//write points to data vector
+//	for(const auto& pt : critical_points){
+//	    data.emplace_back(pt.first); data.emplace_back(pt.second);
+//	}
+//	//initialize ptr
+//	const npy::npy_data_ptr<double> data_ptr{data.data(), shape, false};
+//	//write to .npy
+//	write_npy(write_path, data_ptr);
+//    }
 }

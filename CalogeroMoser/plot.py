@@ -1,30 +1,66 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
-import glob
-import os
+from matplotlib.animation import FuncAnimation
 
 # Directory containing .npy files
-output_dir = "Output"
-npy_files = sorted(glob.glob(os.path.join(output_dir, "*.npy")))
+directory = "Output"
 
-plt.figure(figsize=(10, 6))
+# Collect (time, filepath) pairs
+time_file_pairs = []
 
-for npy_file in npy_files:
-    # Load data: shape (Ny, Ns, 2)
-    data = np.load(npy_file)
-    Ny, Ns, _ = data.shape
+for filename in os.listdir(directory):
+    if filename.endswith(".npy"):
+        name_without_ext = os.path.splitext(filename)[0]
+        try:
+            t = float(name_without_ext)
+            filepath = os.path.join(directory, filename)
+            time_file_pairs.append((t, filepath))
+        except ValueError:
+            # Skip files that don't match float naming
+            pass
 
-    # Plot each of the Ns lines (x,y) for all Ny parameter values
-    for i in range(Ns):
-        x = data[:, i, 0]  # x-coordinates for line i
-        y = data[:, i, 1]  # y-coordinates for line i
-        plt.plot(x, y, '-', linewidth=1, label=f"{os.path.basename(npy_file)} (line {i})" if i == 0 else "")
+# Sort by time
+time_file_pairs.sort(key=lambda x: x[0])
 
-plt.xlabel("x")
-plt.ylabel("y")
-plt.title("Lines from all .npy files (Ns lines per file, traced over Ny parameter values)")
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-plt.grid(True)
-plt.tight_layout()
+# Extract sorted times and filepaths
+times = [pair[0] for pair in time_file_pairs]
+files = [pair[1] for pair in time_file_pairs]
+
+# Preload all data
+data_list = [np.load(f) for f in files]
+
+# Determine global axis limits for consistent animation scaling
+all_points = np.vstack(data_list)
+xmin, ymin = np.min(all_points, axis=0)
+xmax, ymax = np.max(all_points, axis=0)
+
+# Create figure
+fig, ax = plt.subplots()
+scat = ax.scatter([], [])
+
+ax.set_xlim(xmin, xmax)
+ax.set_ylim(ymin, ymax)
+title = ax.set_title("")
+
+def init():
+    scat.set_offsets(np.empty((0, 2)))
+    title.set_text("")
+    return scat, title
+
+def update(frame):
+    points = data_list[frame]
+    scat.set_offsets(points)
+    title.set_text(f"Time = {times[frame]:.4f}")
+    return scat, title
+
+ani = FuncAnimation(
+    fig,
+    update,
+    frames=len(data_list),
+    init_func=init,
+    interval=50,  # milliseconds between frames
+    blit=True
+)
+ani.save("aniamtion.gif", writer="ffmpeg", fps=25)
 plt.show()
-
