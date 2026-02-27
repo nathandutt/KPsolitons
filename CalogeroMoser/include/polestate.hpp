@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include "global.hpp"  
 
 struct PoleState {
@@ -21,7 +22,7 @@ struct PoleState {
     //implemented in .cpp, RK4 evolution of CalogeroMoser Hamiltonian
 
     void Insert(std::vector<std::unique_ptr<SavedState>>& v){
-	v.emplace_back(std::make_unique<SavedState>(y, poles));
+	v.emplace_back(std::make_unique<SavedState>(y, poles, velocity));
     }
      
 };

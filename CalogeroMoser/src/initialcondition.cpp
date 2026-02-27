@@ -1,4 +1,3 @@
-#pragma once
 #include <stdexcept>
 #include "initialcondition.hpp"
 #include "global.hpp"
@@ -42,7 +41,7 @@ Matrix K(const std::vector<complex>& k_s)
 auto InitialConditions(const std::vector<complex>& k_s,
                       const std::vector<complex>& offsets,
                       const double y_i)
--> std::pair<std::vector<complex>, std::vector<complex>>
+-> std::pair<Column, Column>
 {
     //Given soliton parameters at a fixed t. Compute inital pole positions and velocity, at a y value y_i.
     //This let's us not have to take asympotic values everytime, and we can start simulations at y=20, for example, where
@@ -70,8 +69,8 @@ auto InitialConditions(const std::vector<complex>& k_s,
     velocity.setZero();
 
     for(int i = 0; i<N; ++i){
-	pole(0, i) = eigenvalues[i].real(); pole(1, i) = eigenvalues[i].imag();
-	velocity(0, i) = res(i, i).real(); velocity(1, i) = res(i, i).complex();
+	pole(0, i) = eigenvalues_vec(i).real(); pole(1, i) = eigenvalues_vec(i).imag();
+	velocity(0, i) = res(i, i).real(); velocity(1, i) = res(i, i).imag();
     }
     return {pole, velocity};
 }

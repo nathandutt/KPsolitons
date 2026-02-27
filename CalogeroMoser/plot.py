@@ -1,66 +1,56 @@
-import os
+#!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-# Directory containing .npy files
-directory = "Output"
+# Load data
+A = np.load("Output/cpoints.npy")   # shape (T, N, 2)
+T, N, _ = A.shape
 
-# Collect (time, filepath) pairs
-time_file_pairs = []
+# --- Compute global limits ignoring NaNs ---
+xmin = np.nanmin(A[:, :, 0])
+xmax = np.nanmax(A[:, :, 0])
+ymin = np.nanmin(A[:, :, 1])
+ymax = np.nanmax(A[:, :, 1])
+ymin -=1
+ymax+=1
 
-for filename in os.listdir(directory):
-    if filename.endswith(".npy"):
-        name_without_ext = os.path.splitext(filename)[0]
-        try:
-            t = float(name_without_ext)
-            filepath = os.path.join(directory, filename)
-            time_file_pairs.append((t, filepath))
-        except ValueError:
-            # Skip files that don't match float naming
-            pass
+# --- Add padding (5%) ---
+pad_frac = 0.05
 
-# Sort by time
-time_file_pairs.sort(key=lambda x: x[0])
+xrange = xmax - xmin
+yrange = ymax - ymin
 
-# Extract sorted times and filepaths
-times = [pair[0] for pair in time_file_pairs]
-files = [pair[1] for pair in time_file_pairs]
+xmin -= pad_frac * xrange
+xmax += pad_frac * xrange
+ymin -= pad_frac * yrange
+ymax += pad_frac * yrange
 
-# Preload all data
-data_list = [np.load(f) for f in files]
-
-# Determine global axis limits for consistent animation scaling
-all_points = np.vstack(data_list)
-xmin, ymin = np.min(all_points, axis=0)
-xmax, ymax = np.max(all_points, axis=0)
-
-# Create figure
 fig, ax = plt.subplots()
-scat = ax.scatter([], [])
-
 ax.set_xlim(xmin, xmax)
 ax.set_ylim(ymin, ymax)
-title = ax.set_title("")
 
-def init():
-    scat.set_offsets(np.empty((0, 2)))
-    title.set_text("")
-    return scat, title
+# Optional: equal aspect ratio (usually prettier for particle systems)
+ax.set_aspect('equal', adjustable='box')
+
+# Initial frame (remove NaNs)
+pts0 = A[0]
+pts0 = pts0[~np.isnan(pts0).any(axis=1)]
+
+scat = ax.scatter(pts0[:, 0], pts0[:, 1], s=10, alpha=0.7)
 
 def update(frame):
-    points = data_list[frame]
-    scat.set_offsets(points)
-    title.set_text(f"Time = {times[frame]:.4f}")
-    return scat, title
+    pts = A[frame]
+    pts = pts[~np.isnan(pts).any(axis=1)]
+    scat.set_offsets(pts)
+    return scat,
 
 ani = FuncAnimation(
     fig,
     update,
-    frames=len(data_list),
-    init_func=init,
-    interval=50,  # milliseconds between frames
+    frames=T,
+    interval=2000//T,
     blit=True
 )
-ani.save("aniamtion.gif", writer="ffmpeg", fps=25)
+
 plt.show()
